@@ -1,0 +1,20 @@
+# Generated artifacts — not part of the skill package
+assets/style-profile.md
+
+# Test / scratch files
+assets/*.txt
+assets/translated/
+
+# User's private dictionary & examples (keep sample files tracked)
+assets/examples/*.txt
+assets/dictionary/*.csv
+!assets/examples/sample-*.txt
+!assets/dictionary/sample-*.csv
+
+# Python cache
+__pycache__/
+*.pyc
+
+# OS junk
+Thumbs.db
+.DS_Store

@@ -1,0 +1,205 @@
+#!/usr/bin/env python3
+"""
+report_generator.py - Summary report generator for galgame-translation-skill.
+
+Usage:
+    python report_generator.py --files <json_file_list> --output <report_file> [--dict-stats <dict_json>]
+
+Output:
+    Markdown formatted summary report.
+"""
+
+import sys
+import json
+import argparse
+from pathlib import Path
+from datetime import datetime
+
+sys.stdout.reconfigure(encoding='utf-8')
+
+
+def count_file_entries(file_path: str, encoding: str = 'utf-8') -> dict:
+    """Count translation entries in a file, auto-detecting encoding if needed."""
+    result = {
+        "entries": 0,
+        "characters": 0,
+        "format_type": "unknown",
+        "error": None
+    }
+
+    encodings_to_try = [encoding, 'utf-8', 'shift_jis', 'cp932', 'utf-16']
+    seen = set()
+    encodings_to_try = [e for e in encodings_to_try if not (e in seen or seen.add(e))]
+
+    lines = None
+    for enc in encodings_to_try:
+        try:
+            with open(file_path, 'r', encoding=enc, errors='replace') as f:
+                lines = f.readlines()
+            break
+        except Exception:
+            continue
+
+    if lines is None:
+        result["error"] = f"Cannot read file with any tried encoding"
+        return result
+
+    has_source_marker = False
+    has_target_marker = False
+    source_count = 0
+    target_count = 0
+
+    for line in lines:
+        result["characters"] += len(line.rstrip('\n\r'))
+
+        if '★◎' in line and '◎★//' in line:
+            has_source_marker = True
+            source_count += 1
+
+        elif '★◎' in line and '◎★' in line and '//' not in line:
+            has_target_marker = True
+            target_count += 1
+
+    if has_source_marker and has_target_marker:
+        result["format_type"] = "double-line"
+        result["entries"] = min(source_count, target_count)
+    elif has_source_marker:
+        result["format_type"] = "single-line"
+        result["entries"] = source_count
+    else:
+        result["format_type"] = "unknown"
+        result["entries"] = len(lines)
+
+    return result
+
+
+def generate_report(files_info: list, dict_stats: dict = None, output_path: str = None) -> str:
+    """Generate Markdown summary report."""
+    report_lines = []
+    report_lines.append("# Translation Batch Summary Report")
+    report_lines.append("")
+    report_lines.append(f"**Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    report_lines.append("")
+
+    total_files = len(files_info)
+    total_entries = 0
+    total_characters = 0
+    errors = []
+
+    report_lines.append("## Files Processed")
+    report_lines.append("")
+    report_lines.append("| # | File | Format | Entries | Characters | Status |")
+    report_lines.append("|---|------|--------|---------|------------|--------|")
+
+    for i, file_info in enumerate(files_info, 1):
+        input_file = file_info.get("input", "unknown")
+        file_encoding = file_info.get("encoding", "utf-8")
+
+        file_stats = count_file_entries(input_file, file_encoding)
+
+        total_entries += file_stats["entries"]
+        total_characters += file_stats["characters"]
+
+        status = "✅ OK" if not file_stats["error"] else "⚠️ Error"
+
+        if file_stats["error"]:
+            errors.append(f"{input_file}: {file_stats['error']}")
+
+        filename = Path(input_file).name
+        report_lines.append(
+            f"| {i} | `{filename}` | {file_stats['format_type']} | "
+            f"{file_stats['entries']} | {file_stats['characters']} | {status} |"
+        )
+
+    report_lines.append("")
+
+    report_lines.append("## Overall Statistics")
+    report_lines.append("")
+    report_lines.append(f"- **Total files processed**: {total_files}")
+    report_lines.append(f"- **Total translation entries**: {total_entries}")
+    report_lines.append(f"- **Total characters processed**: {total_characters:,}")
+
+    if dict_stats and "stats" in dict_stats:
+        stats = dict_stats["stats"]
+        report_lines.append(f"- **Dictionary files loaded**: {stats.get('total_files', 0)}")
+        report_lines.append(f"- **Total dictionary entries**: {stats.get('total_entries', 0)}")
+
+        if "by_type" in stats:
+            report_lines.append("")
+            report_lines.append("### Dictionary Entries by Type")
+            report_lines.append("")
+            report_lines.append("| Type | Count |")
+            report_lines.append("|------|-------|")
+            for type_name, count in stats["by_type"].items():
+                report_lines.append(f"| {type_name} | {count} |")
+            report_lines.append("")
+
+    if errors:
+        report_lines.append("## Errors and Warnings")
+        report_lines.append("")
+        for error in errors:
+            report_lines.append(f"- ⚠️ {error}")
+        report_lines.append("")
+
+    report_lines.append("---")
+    report_lines.append("")
+    report_lines.append("*Report generated by galgame-translation-skill*")
+
+    report_content = "\n".join(report_lines)
+
+    if output_path:
+        try:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(report_content)
+        except Exception as e:
+            print(f"Error writing report to {output_path}: {e}", file=sys.stderr)
+
+    return report_content
+
+
+def main() -> None:
+    """CLI entry point: generate translation reports."""
+    parser = argparse.ArgumentParser(description="Report generator for galgame-translation-skill")
+    parser.add_argument("--files", required=True, help="JSON file with files info")
+    parser.add_argument("--dict-stats", help="JSON file with dictionary stats")
+    parser.add_argument("--output", "-o", help="Output file path (default: stdout)")
+
+    args = parser.parse_args()
+
+    try:
+        with open(args.files, 'r', encoding='utf-8') as f:
+            files_data = json.load(f)
+
+        if isinstance(files_data, dict) and "files" in files_data:
+            files_info = files_data["files"]
+        elif isinstance(files_data, list):
+            files_info = files_data
+        else:
+            files_info = []
+
+    except Exception as e:
+        print(f"Error loading files info: {e}", file=sys.stderr)
+        files_info = []
+
+    dict_stats = None
+    if args.dict_stats:
+        try:
+            with open(args.dict_stats, 'r', encoding='utf-8') as f:
+                dict_stats = json.load(f)
+        except Exception as e:
+            print(f"Error loading dictionary stats: {e}", file=sys.stderr)
+
+    report = generate_report(files_info, dict_stats, args.output)
+
+    if not args.output:
+        print(report)
+    else:
+        print(json.dumps({
+            "report_file": args.output,
+            "total_files": len(files_info),
+            "status": "success"
+        }, indent=2, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    main()
