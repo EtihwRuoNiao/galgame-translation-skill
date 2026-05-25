@@ -86,13 +86,6 @@ cd galgame-translation-skill
 /galgame-translation-skill *.txt                          # 翻译匹配的文件
 ```
 
-### 默认路径（兼容旧方式）
-
-```
-/galgame-translation-skill 翻译 input/ 目录下的所有文件
-/galgame-translation-skill 将 dd_1_0612_f1.txt 翻译成中文
-```
-
 ### 输出位置
 
 翻译结果会输出到输入路径同级的新建文件夹：
@@ -169,7 +162,7 @@ python encoding_detector.py /path/to/file.txt
 
 ```bash
 python dict_loader.py ../assets/dictionary/
-python dict_loader.py ../assets/dictionary/ --lookup "るる姉"
+python dict_loader.py ../assets/dictionary/ --lookup "こんにちは"
 python dict_loader.py ../assets/dictionary/ --stats
 ```
 
