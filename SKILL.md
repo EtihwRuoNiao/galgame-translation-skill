@@ -12,6 +12,10 @@ provenance:
     - name: galgame-translation-skill
       path: https://github.com/EtihwRuoNiao/galgame-translation-skill
       type: git
+    - name: MesTextTool
+      path: https://github.com/cokkeijigen/MesTextTool
+      type: git
+      description: 提取 TXT 文本格式的来源工具
 metadata:
   author: AI Assistant
   version: 0.9.0

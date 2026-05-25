@@ -166,6 +166,10 @@ python dict_loader.py ../assets/dictionary/ --lookup "こんにちは"
 python dict_loader.py ../assets/dictionary/ --stats
 ```
 
+## 致谢
+
+本技能处理的文本格式来源于 [cokkeijigen/MesTextTool](https://github.com/cokkeijigen/MesTextTool) 项目提取的 TXT 文件格式。
+
 ## 许可证
 
 MIT License
